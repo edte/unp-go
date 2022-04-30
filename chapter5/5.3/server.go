@@ -6,11 +6,18 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"syscall"
 )
 
 // 实现回显 echo 服务器
+// 并且对数据编码
+// client 传送 num1,num2
+// server 返回 num1+num2
+// 使用二进制传输，并且尝试不同的字节序
 
 func main() {
 	ListenFD, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
@@ -18,7 +25,7 @@ func main() {
 		panic(err)
 	}
 
-	syscall.SetNonblock(ListenFD, false)
+	//syscall.SetNonblock(ListenFD, false)
 
 	err = syscall.Bind(ListenFD, &syscall.SockaddrInet4{
 		Port: 1234,
@@ -37,24 +44,28 @@ func main() {
 			fmt.Println(err)
 			continue
 		}
-		go echo(connectFD)
+		go echo(newConn(connectFD))
 	}
 }
 
-func echo(fd int) {
-	buf := make([]byte, 100)
+func echo(c *Conn) {
+	reader := bufio.NewReader(c)
+
 	for {
-		_, err := syscall.Read(fd, buf)
-		if err != nil {
-			panic(err)
-		}
-		//fmt.Println(string(buf))
-		_, err = syscall.Write(fd, buf)
+		line, _, err := reader.ReadLine()
 		if err != nil {
 			panic(err)
 		}
 
-		buf = make([]byte, 100)
+		var n Num
+		if err = json.Unmarshal(line, &n); err != nil {
+			panic(err)
+		}
+
+		_, err = c.Write([]byte(strconv.Itoa(n.A + n.B)))
+		if err != nil {
+			panic(err)
+		}
+
 	}
-
 }
