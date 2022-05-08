@@ -20,6 +20,8 @@ func main() {
 
 	syscall.SetNonblock(ListenFD, false)
 
+	syscall.SetsockoptInt(ListenFD, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 99)
+
 	err = syscall.Bind(ListenFD, &syscall.SockaddrInet4{
 		Port: 1234,
 	})
@@ -31,30 +33,52 @@ func main() {
 		panic(err)
 	}
 
+	e := newEpoll()
+	if err := e.add(ListenFD); err != nil {
+		panic(err)
+	}
+
 	for {
-		connectFD, _, err := syscall.Accept(ListenFD)
+		events, _, err := e.wait(-1)
 		if err != nil {
-			fmt.Println(err)
-			continue
+			panic(err)
 		}
-		go echo(connectFD)
+
+		for i := range events {
+			if events[i].Fd == int32(ListenFD) {
+				clientFD, _, err := syscall.Accept(ListenFD)
+				if err != nil {
+					panic(err)
+				}
+
+				if err = e.add(clientFD); err != nil {
+					panic(err)
+				}
+
+				continue
+			}
+
+			echo(int(events[i].Fd))
+
+		}
+
 	}
 }
 
 func echo(fd int) {
 	buf := make([]byte, 100)
-	for {
-		_, err := syscall.Read(fd, buf)
-		if err != nil {
-			panic(err)
-		}
-		//fmt.Println(string(buf))
-		_, err = syscall.Write(fd, buf)
-		if err != nil {
-			panic(err)
-		}
-
-		buf = make([]byte, 100)
+	_, err := syscall.Read(fd, buf)
+	if err != nil {
+		panic(err)
 	}
+
+	fmt.Println(string(buf))
+
+	_, err = syscall.Write(fd, buf)
+	if err != nil {
+		panic(err)
+	}
+
+	buf = make([]byte, 100)
 
 }
