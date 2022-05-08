@@ -10,8 +10,7 @@ import (
 	"syscall"
 )
 
-// select io 多路复用重写 client socket 和 stdio
-// 半连接 -- 关闭读优化 shutdown
+// epoll io 多路复用重写 client socket 和 stdio
 
 func main() {
 	ListenFD, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
@@ -49,9 +48,7 @@ func echo(fd int) {
 		if err != nil {
 			panic(err)
 		}
-
-		fmt.Println(string(buf))
-
+		//fmt.Println(string(buf))
 		_, err = syscall.Write(fd, buf)
 		if err != nil {
 			panic(err)

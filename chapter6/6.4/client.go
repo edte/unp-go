@@ -10,6 +10,8 @@ import (
 	"syscall"
 )
 
+// https://github.com/mindreframer/golang-stuff/blob/master/github.com/pebbe/zmq2/examples/udpping1.go
+
 func main() {
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
 	if err != nil {
@@ -49,17 +51,10 @@ func cli(c *conn) {
 		Bits: [16]int64{},
 	}
 
-	w := &syscall.FdSet{
-		Bits: [16]int64{},
-	}
-
-	FdZero(sets)
-	FdZero(w)
-	FdSet(sets, syscall.Stdin)
-	FdSet(sets, c.fd)
-	FdSet(w, c.fd)
-
 	for {
+		FdZero(sets)
+		FdSet(sets, syscall.Stdin)
+		FdSet(sets, c.fd)
 
 		_, err := syscall.Select(max(syscall.Stdin, c.fd)+1, sets, nil, nil, nil)
 		if err != nil {
@@ -67,7 +62,7 @@ func cli(c *conn) {
 		}
 
 		if FdIsSet(sets, syscall.Stdin) {
-			fmt.Println("stdin is set")
+			//fmt.Println("stdin is set")
 
 			_, err := fmt.Scanln(&str)
 			if err != nil {
@@ -75,10 +70,8 @@ func cli(c *conn) {
 			}
 
 			//fmt.Println(str)
-		}
 
-		if FdIsSet(w, c.fd) {
-			fmt.Println("write socket fd is set")
+			//fmt.Println("write..")
 
 			_, err = c.Write([]byte(str))
 			if err != nil {
@@ -87,40 +80,15 @@ func cli(c *conn) {
 		}
 
 		if FdIsSet(sets, c.fd) {
-			fmt.Println("read socket fd is set")
+			//fmt.Println("socket fd is set")
 
 			buf := make([]byte, 100)
+			//fmt.Println("send...")
 			_, err = c.Read(buf)
 			if err != nil {
 				panic(err)
 			}
 			fmt.Println(string(buf))
-
-			//if err := syscall.Shutdown(c.fd, syscall.SHUT_WR); err != nil {
-			//	panic(err)
-			//}
-
 		}
-	}
-}
-
-func max(a int, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func FdSet(p *syscall.FdSet, i int) {
-	p.Bits[i/64] |= 1 << uint(i) % 64
-}
-
-func FdIsSet(p *syscall.FdSet, i int) bool {
-	return (p.Bits[i/64] & (1 << uint(i) % 64)) != 0
-}
-
-func FdZero(p *syscall.FdSet) {
-	for i := range p.Bits {
-		p.Bits[i] = 0
 	}
 }
